@@ -1,9 +1,19 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const path = require('path');
 const { isAuthenticated, validateLogin } = require('../middleware/auth');
 const { services } = require('../models/database');
 const { scheduleService, unscheduleService, checkService } = require('../services/monitor');
+
+// Login rate limiter - stricter limits for login attempts
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 login attempts per windowMs
+  message: 'Too many login attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // Login page
 router.get('/login', (req, res) => {
@@ -13,8 +23,8 @@ router.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '../../views/login.html'));
 });
 
-// Login POST
-router.post('/login', express.urlencoded({ extended: true }), async (req, res) => {
+// Login POST with rate limiting
+router.post('/login', loginLimiter, express.urlencoded({ extended: true }), async (req, res) => {
   const { username, password } = req.body;
   
   try {

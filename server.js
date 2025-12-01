@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const session = require('express-session');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -15,6 +16,22 @@ if (process.env.NODE_ENV === 'production' && !sessionSecret) {
   process.exit(1);
 }
 
+// Rate limiting configuration
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { error: 'Too many requests, please try again later' }
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 login attempts per windowMs
+  message: { error: 'Too many login attempts, please try again later' }
+});
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter);
+
 // Session configuration
 app.use(session({
   secret: sessionSecret || crypto.randomBytes(32).toString('hex'),
@@ -23,7 +40,8 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'strict' // CSRF protection
   }
 }));
 
