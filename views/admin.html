@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Status Page</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="admin-page">
+  <header class="admin-header">
+    <div class="container">
+      <div class="header-content">
+        <h1>⚙️ Admin Panel</h1>
+        <nav>
+          <a href="/" class="btn btn-secondary">View Status Page</a>
+          <a href="/admin/logout" class="btn btn-outline">Logout</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="admin-section">
+      <div class="section-header">
+        <h2>Manage Services</h2>
+        <button id="add-service-btn" class="btn btn-primary">+ Add Service</button>
+      </div>
+
+      <div id="services-list" class="services-table-container">
+        <table class="services-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>URL</th>
+              <th>Method</th>
+              <th>Interval</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="services-tbody">
+            <!-- Services will be loaded here -->
+          </tbody>
+        </table>
+        <div id="no-services" class="no-services" style="display: none;">
+          <p>No services configured yet. Click "Add Service" to get started.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Service Modal -->
+  <div id="service-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Service</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="service-form">
+        <input type="hidden" id="service-id">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="service-name">Service Name *</label>
+            <input type="text" id="service-name" required placeholder="My Website">
+          </div>
+          <div class="form-group">
+            <label for="service-url">URL/Endpoint *</label>
+            <input type="text" id="service-url" required placeholder="https://example.com">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="service-method">Method</label>
+            <select id="service-method">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="HEAD">HEAD</option>
+              <option value="TCP">TCP Ping</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="service-port">Port (optional)</label>
+            <input type="number" id="service-port" placeholder="80, 443, etc.">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="service-interval">Check Interval (minutes)</label>
+            <input type="number" id="service-interval" value="5" min="1" max="60">
+          </div>
+          <div class="form-group">
+            <label for="service-timeout">Timeout (seconds)</label>
+            <input type="number" id="service-timeout" value="30" min="1" max="120">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="service-expected-status">Expected Status Code</label>
+            <input type="number" id="service-expected-status" value="200" placeholder="200">
+          </div>
+          <div class="form-group">
+            <label for="service-keywords">Keywords (comma-separated)</label>
+            <input type="text" id="service-keywords" placeholder="success, ok">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="service-headers">Custom Headers (JSON)</label>
+          <textarea id="service-headers" rows="2" placeholder='{"Authorization": "Bearer token"}'></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="service-description">Description</label>
+          <textarea id="service-description" rows="2" placeholder="Description of this service"></textarea>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label>
+            <input type="checkbox" id="service-notifications" checked>
+            Enable notifications
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Service</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h3>Confirm Deletion</h3>
+        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <p>Are you sure you want to delete this service? This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let services = [];
+    let editingId = null;
+    let deletingId = null;
+
+    // Load services on page load
+    document.addEventListener('DOMContentLoaded', loadServices);
+
+    async function loadServices() {
+      try {
+        const response = await fetch('/admin/api/services');
+        services = await response.json();
+        renderServices();
+      } catch (error) {
+        console.error('Error loading services:', error);
+      }
+    }
+
+    function renderServices() {
+      const tbody = document.getElementById('services-tbody');
+      const noServices = document.getElementById('no-services');
+      
+      if (services.length === 0) {
+        tbody.innerHTML = '';
+        noServices.style.display = 'block';
+        return;
+      }
+
+      noServices.style.display = 'none';
+      tbody.innerHTML = services.map(service => `
+        <tr>
+          <td><strong>${escapeHtml(service.name)}</strong></td>
+          <td class="url-cell">${escapeHtml(service.url)}</td>
+          <td><span class="method-badge">${service.method}</span></td>
+          <td>${service.check_interval} min</td>
+          <td>
+            <span class="status-indicator status-unknown">Checking...</span>
+          </td>
+          <td class="actions-cell">
+            <button class="btn btn-small btn-secondary" onclick="checkService(${service.id})">Check Now</button>
+            <button class="btn btn-small btn-outline" onclick="editService(${service.id})">Edit</button>
+            <button class="btn btn-small btn-danger" onclick="deleteService(${service.id})">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Modal functions
+    document.getElementById('add-service-btn').addEventListener('click', () => {
+      editingId = null;
+      document.getElementById('modal-title').textContent = 'Add Service';
+      document.getElementById('service-form').reset();
+      document.getElementById('service-modal').style.display = 'flex';
+    });
+
+    function closeModal() {
+      document.getElementById('service-modal').style.display = 'none';
+      editingId = null;
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').style.display = 'none';
+      deletingId = null;
+    }
+
+    function editService(id) {
+      const service = services.find(s => s.id === id);
+      if (!service) return;
+
+      editingId = id;
+      document.getElementById('modal-title').textContent = 'Edit Service';
+      document.getElementById('service-id').value = id;
+      document.getElementById('service-name').value = service.name || '';
+      document.getElementById('service-url').value = service.url || '';
+      document.getElementById('service-method').value = service.method || 'GET';
+      document.getElementById('service-port').value = service.port || '';
+      document.getElementById('service-interval').value = service.check_interval || 5;
+      document.getElementById('service-timeout').value = service.timeout || 30;
+      document.getElementById('service-expected-status').value = service.expected_status || 200;
+      document.getElementById('service-keywords').value = service.keywords || '';
+      document.getElementById('service-headers').value = service.headers || '';
+      document.getElementById('service-description').value = service.description || '';
+      document.getElementById('service-notifications').checked = service.notifications_enabled == 1;
+      
+      document.getElementById('service-modal').style.display = 'flex';
+    }
+
+    function deleteService(id) {
+      deletingId = id;
+      document.getElementById('delete-modal').style.display = 'flex';
+    }
+
+    document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+      if (!deletingId) return;
+
+      try {
+        const response = await fetch(`/admin/api/services/${deletingId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          closeDeleteModal();
+          loadServices();
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          alert('Error deleting service: ' + (errorData.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting service: ' + error.message);
+      }
+    });
+
+    // Form submission
+    document.getElementById('service-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const serviceData = {
+        name: document.getElementById('service-name').value,
+        url: document.getElementById('service-url').value,
+        method: document.getElementById('service-method').value,
+        port: document.getElementById('service-port').value ? parseInt(document.getElementById('service-port').value) : null,
+        check_interval: parseInt(document.getElementById('service-interval').value) || 5,
+        timeout: parseInt(document.getElementById('service-timeout').value) || 30,
+        expected_status: parseInt(document.getElementById('service-expected-status').value) || 200,
+        keywords: document.getElementById('service-keywords').value || null,
+        headers: document.getElementById('service-headers').value || null,
+        description: document.getElementById('service-description').value || null,
+        notifications_enabled: document.getElementById('service-notifications').checked
+      };
+
+      try {
+        const url = editingId 
+          ? `/admin/api/services/${editingId}`
+          : '/admin/api/services';
+        
+        const response = await fetch(url, {
+          method: editingId ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(serviceData)
+        });
+
+        if (response.ok) {
+          closeModal();
+          loadServices();
+        } else {
+          const error = await response.json();
+          alert('Error: ' + (error.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error saving service');
+      }
+    });
+
+    async function checkService(id) {
+      try {
+        const response = await fetch(`/admin/api/services/${id}/check`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+        alert(`Check result: ${result.status}\nResponse time: ${result.response_time}ms`);
+        loadServices();
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error checking service');
+      }
+    }
+
+    // Close modals on outside click
+    window.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal')) {
+        closeModal();
+        closeDeleteModal();
+      }
+    });
+  </script>
+</body>
+</html>
