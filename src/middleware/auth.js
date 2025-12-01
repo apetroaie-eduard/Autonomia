@@ -16,13 +16,29 @@ const isAuthenticated = (req, res, next) => {
 };
 
 // Login validation
-const validateLogin = (username, password) => {
+// Supports both plain text password (for simple setup) and bcrypt hashed password
+// To use hashed password, set ADMIN_PASSWORD_HASH in .env with bcrypt hash
+const validateLogin = async (username, password) => {
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
   
-  // For simplicity, we're doing a direct comparison
-  // In production, you should hash the password in .env and compare hashes
-  return username === adminUsername && password === adminPassword;
+  if (username !== adminUsername) {
+    return false;
+  }
+  
+  // If a password hash is provided, use secure bcrypt comparison
+  if (adminPasswordHash) {
+    return bcrypt.compare(password, adminPasswordHash);
+  }
+  
+  // Fallback to plain text comparison (for development/simple setups)
+  // Use constant-time comparison to prevent timing attacks
+  const crypto = require('crypto');
+  return crypto.timingSafeEqual(
+    Buffer.from(password),
+    Buffer.from(adminPassword)
+  );
 };
 
 // Hash password helper (for future use with user management)

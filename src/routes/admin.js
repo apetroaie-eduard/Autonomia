@@ -14,13 +14,19 @@ router.get('/login', (req, res) => {
 });
 
 // Login POST
-router.post('/login', express.urlencoded({ extended: true }), (req, res) => {
+router.post('/login', express.urlencoded({ extended: true }), async (req, res) => {
   const { username, password } = req.body;
   
-  if (validateLogin(username, password)) {
-    req.session.isAdmin = true;
-    res.redirect('/admin');
-  } else {
+  try {
+    const isValid = await validateLogin(username, password);
+    if (isValid) {
+      req.session.isAdmin = true;
+      res.redirect('/admin');
+    } else {
+      res.redirect('/admin/login?error=1');
+    }
+  } catch (error) {
+    console.error('Login error:', error);
     res.redirect('/admin/login?error=1');
   }
 });

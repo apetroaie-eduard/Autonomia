@@ -258,11 +258,12 @@
           closeDeleteModal();
           loadServices();
         } else {
-          alert('Error deleting service');
+          const errorData = await response.json().catch(() => ({}));
+          alert('Error deleting service: ' + (errorData.error || 'Unknown error'));
         }
       } catch (error) {
         console.error('Error:', error);
-        alert('Error deleting service');
+        alert('Error deleting service: ' + error.message);
       }
     });
 

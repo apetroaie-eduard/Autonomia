@@ -3,13 +3,21 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Validate session secret in production
+const sessionSecret = process.env.SESSION_SECRET;
+if (process.env.NODE_ENV === 'production' && !sessionSecret) {
+  console.error('ERROR: SESSION_SECRET environment variable must be set in production');
+  process.exit(1);
+}
+
 // Session configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'default-secret-key-change-in-production',
+  secret: sessionSecret || crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -54,7 +54,8 @@ const performHttpCheck = async (service) => {
         'User-Agent': 'StatusPage-Monitor/1.0',
         ...customHeaders
       },
-      rejectUnauthorized: false // Allow self-signed certificates
+      // Allow self-signed certificates in development, strict in production
+      rejectUnauthorized: process.env.NODE_ENV === 'production'
     };
 
     const req = httpModule.request(options, (res) => {
@@ -206,7 +207,8 @@ const checkService = async (service) => {
 
   // Auto-create incident if service goes offline
   const lastCheck = checks.getLatestByServiceId(service.id);
-  if (result.status === 'offline' && (!lastCheck || lastCheck.status !== 'offline')) {
+  const wasOnline = !lastCheck || (lastCheck && lastCheck.status && lastCheck.status !== 'offline');
+  if (result.status === 'offline' && wasOnline) {
     incidents.create({
       service_id: service.id,
       title: `${service.name} is down`,
