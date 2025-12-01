@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login - Status Page</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <h1>🔐 Admin Login</h1>
+        <p>Sign in to manage your status page</p>
+      </div>
+      
+      <form action="/admin/login" method="POST" class="login-form">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required autocomplete="username" placeholder="Enter your username">
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Enter your password">
+        </div>
+        
+        <div id="error-message" class="error-message" style="display: none;">
+          Invalid username or password
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+      </form>
+      
+      <div class="login-footer">
+        <a href="/">← Back to Status Page</a>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Show error message if redirected with error
+    if (window.location.search.includes('error=1')) {
+      document.getElementById('error-message').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
